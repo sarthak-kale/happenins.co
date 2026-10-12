@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Alex+Brush&family=Dancing+Script:wght@600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-cursive: "Alex Brush", "Dancing Script", "Sacramento", cursive;
+}
+
+.font-cursive {
+  font-family: var(--font-cursive);
+}
+
+/* Base resets & custom District dark scrollbar */
+html, body {
+  background-color: #060608;
+  color: #f4f4f5;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #060608;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Micro-animations & refined transitions */
+@keyframes subtlePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.15;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.25;
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtlePulse 8s infinite ease-in-out;
+}
+
+/* District Glass Panels */
+.glass-panel {
+  background: rgba(15, 15, 20, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-panel-heavy {
+  background: rgba(12, 12, 16, 0.92);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+/* District Accent Buttons */
+.district-btn-primary {
+  background: linear-gradient(135deg, #e23744 0%, #ff2a54 100%);
+  color: #ffffff;
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 18px rgba(226, 55, 68, 0.35);
+}
+.district-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(226, 55, 68, 0.5);
+  filter: brightness(1.08);
+}
+.district-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Legacy helpers redirected to clean dark styling */
+.neon-btn-primary {
+  background: linear-gradient(135deg, #e23744 0%, #ff2a54 100%);
+  color: #ffffff;
+  transition: all 0.2s ease-out;
+  box-shadow: 0 4px 20px rgba(226, 55, 68, 0.3);
+}
+.neon-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(226, 55, 68, 0.45);
+}
+.neon-btn-primary:active {
+  transform: translateY(0);
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+}

@@ -1,0 +1,10 @@
+{
+  "name": "Happenins Ticketing Platform",
+  "description": "A modern community events platform inspired by BookMyShow with secure QR ticket check-ins, ticket inventory tracking, and full organizer dashboards.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

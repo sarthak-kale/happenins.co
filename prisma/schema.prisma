@@ -1,0 +1,531 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+model User {
+  id                  String               @id // Supports UID or UUIDv4
+  email               String               @unique
+  passwordHash        String?
+  fullName            String
+  avatarUrl           String?
+  role                UserRole             @default(USER)
+  isEmailVerified     Boolean              @default(false)
+  emailVerifiedAt     DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  organizerProfile    OrganizerProfile?
+  bookings            Booking[]
+  auditLogs           AuditLog[]
+  scannedTickets      Attendance[]         @relation("ScannerRelation")
+  reviews             Review[]
+  sentTransfers       TicketTransfer[]     @relation("SentTransfers")
+  claimedTransfers    TicketTransfer[]     @relation("ClaimedTransfers")
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  ownedTickets        Ticket[]             @relation("TicketOwner")
+  scannedTicketsList  Ticket[]             @relation("TicketScanner")
+  wallet              Wallet?
+
+  @@index([role])
+}
+
+model OrganizerProfile {
+  id                  String         @id @default(uuid())
+  userId              String         @unique
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName         String
+  logoUrl             String?
+  website             String?
+  entityType          String?
+  phone               String?
+  businessAddress     String?
+  taxId               String?
+  representativeTitle String?
+  bankName            String?
+  bankAccountName     String?
+  bankAccountNumber   String?
+  acceptedTermsAt     DateTime?
+  acceptedLiability   Boolean        @default(false)
+  acceptedPrivacy     Boolean        @default(false)
+  isVerified          Boolean        @default(false)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  events              Event[]
+  staffScanners       StaffScanner[]
+}
+
+model Event {
+  id             String             @id @default(uuid())
+  organizerId    String
+  organizer      OrganizerProfile   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  title          String
+  slug           String             @unique
+  description    String
+  category       String
+  bannerUrl      String?
+  locationType   LocationType
+  venue          String?
+  city           String?
+  status         EventStatus        @default(DRAFT)
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  hasSeatingPlan Boolean            @default(false)
+  seatingRows    Int                @default(10)
+  seatingCols    Int                @default(10)
+  ticketTiers    TicketTier[]
+  bookings       Booking[]
+  promoCodes     PromoCode[]
+  reviews        Review[]
+  accessPolicy   EventAccessPolicy?
+  eventSeats     EventSeat[]
+  staffScanners  StaffScanner[]
+
+  @@index([status, startsAt])
+  @@index([category, status])
+  @@index([organizerId])
+}
+
+model TicketTier {
+  id           String        @id @default(uuid())
+  eventId      String
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  price        Int // Stored in Cents (Integer)
+  capacity     Int
+  reserved     Int           @default(0)
+  sold         Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  bookingItems BookingItem[]
+  tickets      Ticket[]
+
+  @@index([eventId])
+}
+
+model Booking {
+  id                   String              @id @default(uuid())
+  userId               String
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  eventId              String
+  event                Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  status               BookingStatus       @default(RESERVED)
+  invoiceNumber        String              @unique
+  reservedUntil        DateTime
+  totalAmount          Int // Total in Cents/Paise
+  discountAmount       Int                 @default(0) // Discount applied in Cents/Paise
+  promoCodeId          String?
+  promoCode            PromoCode?          @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  razorpayOrderId      String?             @unique
+  razorpayPaymentId    String?             @unique
+  idempotencyKey       String?             @unique
+  verifiedCollegeEmail String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  isSplitBooking       Boolean             @default(false)
+  splitTotalShares     Int                 @default(1)
+  walletAmountApplied  Int                 @default(0)
+  cancelledAt          DateTime?
+  cancellationFee      Int?
+  refundAmount         Int?
+  cancelledReason      String?
+  items                BookingItem[]
+  payments             Payment[]
+  attendance           Attendance?
+  splitShares          BookingSplitShare[]
+  transfers            TicketTransfer[]
+  tickets              Ticket[]
+
+  @@index([userId, status])
+  @@index([eventId, status])
+  @@index([status, reservedUntil])
+}
+
+model Ticket {
+  id                   String           @id @default(uuid())
+  ticketNumber         String           @unique // non-sequential public ticket ID e.g. TKT-9F3A1B2C
+  bookingId            String
+  booking              Booking          @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  ticketTierId         String
+  ticketTier           TicketTier       @relation(fields: [ticketTierId], references: [id], onDelete: Restrict)
+  ownerUserId          String
+  ownerUser            User             @relation("TicketOwner", fields: [ownerUserId], references: [id])
+  seatNumber           String?
+  seatId               String?
+  status               TicketStatus     @default(RESERVED)
+  qrToken              String?          @unique
+  verifiedCollegeEmail String?
+  scannedAt            DateTime?
+  scannedByUserId      String?
+  scannedByUser        User?            @relation("TicketScanner", fields: [scannedByUserId], references: [id])
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  transfers            TicketTransfer[]
+  attendanceLogs       AttendanceLog[]
+
+  @@index([ownerUserId, status])
+  @@index([bookingId, status])
+  @@index([ticketTierId])
+  @@index([status])
+}
+
+model AttendanceLog {
+  id             String        @id @default(uuid())
+  ticketId       String?
+  ticket         Ticket?       @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  ticketNumber   String?
+  eventId        String
+  scannerUserId  String
+  scannerType    ScannerType   @default(ORGANIZER)
+  gateName       String?
+  staffScannerId String?
+  staffScanner   StaffScanner? @relation(fields: [staffScannerId], references: [id], onDelete: SetNull)
+  scanOutcome    String // "SUCCESS" | "ALREADY_CHECKED_IN" | "INVALID_QR" | "EXPIRED_EVENT" | "UNAUTHORIZED" | "CANCELLED_TICKET" | "WRONG_EVENT" | "GATE_MISMATCH"
+  scannedAt      DateTime      @default(now())
+  ipAddress      String?
+  userAgent      String?
+
+  @@index([eventId, scanOutcome])
+  @@index([ticketId])
+  @@index([scannerUserId])
+  @@index([staffScannerId])
+  @@index([scannedAt])
+}
+
+model StaffScanner {
+  id             String           @id @default(uuid())
+  eventId        String
+  event          Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  organizerId    String
+  organizer      OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  staffName      String
+  pin            String
+  gateName       String           @default("Main Gate")
+  allowedTiers   String           @default("ALL") // "ALL" or JSON array of tier IDs / names
+  isActive       Boolean          @default(true)
+  scansCount     Int              @default(0)
+  lastScannedAt  DateTime?
+  expiresAt      DateTime?
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  attendanceLogs AttendanceLog[]
+
+  @@index([eventId, isActive])
+  @@index([pin])
+  @@index([organizerId])
+}
+
+model BookingItem {
+  id           String     @id @default(uuid())
+  bookingId    String
+  booking      Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  ticketTierId String
+  ticketTier   TicketTier @relation(fields: [ticketTierId], references: [id], onDelete: Restrict)
+  quantity     Int
+  subtotal     Int
+  seatNumbers  String? // Stored as "A-1, A-2" for selected seats
+
+  @@index([bookingId])
+  @@index([ticketTierId])
+}
+
+
+
+model Attendance {
+  id            String    @id @default(uuid())
+  bookingId     String    @unique
+  booking       Booking   @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  qrHash        String    @unique
+  scannedAt     DateTime?
+  scannerUserId String?
+  scanner       User?     @relation("ScannerRelation", fields: [scannerUserId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model PromoCode {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  eventId       String
+  event         Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  discountType  DiscountType
+  discountValue Int // e.g. 20 for 20% or 1000 for $10.00 (in cents)
+  maxUses       Int? // Nullable for unlimited
+  usedCount     Int          @default(0)
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  bookings      Booking[]
+
+  @@index([eventId])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int // 1-5 stars
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, userId]) // Single verified review per user per event
+  @@index([eventId])
+}
+
+model BookingSplitShare {
+  id                String           @id @default(uuid())
+  bookingId         String
+  booking           Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  friendName        String
+  email             String
+  amount            Int // in cents/paise
+  isPaid            Boolean          @default(false)
+  paymentId         String? // transactionId or razorpayPaymentId if paid
+  razorpayOrderId   String?          @unique
+  razorpayPaymentId String?          @unique
+  razorpaySignature String?
+  status            SplitShareStatus @default(PENDING)
+  paidAt            DateTime?
+  createdAt         DateTime         @default(now())
+
+  @@index([bookingId])
+  @@index([email])
+}
+
+model OAuthState {
+  id           String    @id @default(uuid())
+  stateHash    String    @unique
+  codeVerifier String
+  redirectUri  String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model TicketTransfer {
+  id              String         @id @default(uuid())
+  bookingId       String
+  booking         Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  ticketId        String?
+  ticket          Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderUserId    String
+  senderUser      User           @relation("SentTransfers", fields: [senderUserId], references: [id])
+  recipientEmail  String
+  recipientName   String?
+  transferCode    String         @unique // e.g. TR-8A2F9B
+  status          TransferStatus @default(PENDING)
+  claimedByUserId String?
+  claimedByUser   User?          @relation("ClaimedTransfers", fields: [claimedByUserId], references: [id])
+  claimedAt       DateTime?
+  note            String?
+  expiresAt       DateTime
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([senderUserId])
+  @@index([recipientEmail])
+  @@index([status])
+}
+
+model Institution {
+  id            String              @id @default(uuid())
+  name          String
+  slug          String              @unique
+  type          String              @default("COLLEGE") // "COLLEGE" | "UNIVERSITY" | "SCHOOL" | "COMPANY" | "ORGANIZATION" | "OTHER"
+  logoUrl       String?
+  primaryDomain String              @unique
+  isVerified    Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  domains       InstitutionDomain[]
+}
+
+model InstitutionDomain {
+  id            String      @id @default(uuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  domain        String      @unique // lowercase e.g. "rbunagpur.in"
+  isVerified    Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([institutionId])
+}
+
+
+model Wallet {
+  id           String              @id @default(uuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance      Int                 @default(0) // in paise / cents
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id           String   @id @default(uuid())
+  walletId     String
+  wallet       Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type         String // "CREDIT" | "DEBIT"
+  reason       String // "TICKET_CANCELLATION" | "TICKET_PURCHASE" | "BONUS"
+  amount       Int // in paise / cents
+  balanceAfter Int // in paise / cents
+  description  String
+  bookingId    String?
+  referenceId  String?
+  createdAt    DateTime @default(now())
+
+  @@index([walletId])
+  @@index([bookingId])
+}
+
+// ==========================================
+// VENTURE VAULT DELEGATION SYSTEM
+// ==========================================
+
+model VentureEvent {
+  id              String            @id @default(uuid())
+  title           String            @default("Venture Vault")
+  description     String?
+  masterBannerUrl String?
+  isPrivate       Boolean           @default(true)
+  status          String            @default("ACTIVE")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  subEvents       VentureSubEvent[]
+  teams           VentureTeam[]
+  staffScanners   VentureStaffScanner[]
+}
+
+model VentureSubEvent {
+  id              String            @id @default(uuid())
+  ventureEventId  String
+  ventureEvent    VentureEvent      @relation(fields: [ventureEventId], references: [id], onDelete: Cascade)
+  roundNumber     Int
+  title           String
+  bannerUrl       String?
+  scheduledTime   String?
+  status          String            @default("LOCKED")
+  createdAt       DateTime          @default(now())
+  passes          VenturePass[]
+
+  @@unique([ventureEventId, roundNumber])
+}
+
+model VentureTeam {
+  id              String            @id @default(uuid())
+  ventureEventId  String
+  ventureEvent    VentureEvent      @relation(fields: [ventureEventId], references: [id], onDelete: Cascade)
+  teamName        String
+  createdAt       DateTime          @default(now())
+  members         VentureMember[]
+
+  @@index([ventureEventId])
+}
+
+model VentureMember {
+  id              String            @id @default(uuid())
+  teamId          String
+  team            VentureTeam       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  fullName        String
+  email           String
+  role            String            @default("MEMBER")
+  uniqueToken     String            @unique
+  createdAt       DateTime          @default(now())
+  passes          VenturePass[]
+
+  @@index([teamId])
+  @@index([email])
+}
+
+model VenturePass {
+  id              String            @id @default(uuid())
+  memberId        String
+  member          VentureMember     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  subEventId      String
+  subEvent        VentureSubEvent   @relation(fields: [subEventId], references: [id], onDelete: Cascade)
+  qrHash          String            @unique
+  status          String            @default("UNSENT")
+  emailSentAt     DateTime?
+  checkedInAt     DateTime?
+  checkedInByGate String?
+  createdAt       DateTime          @default(now())
+  scanLogs        VentureScanLog[]
+
+  @@unique([memberId, subEventId])
+  @@index([qrHash])
+}
+
+model VentureScanLog {
+  id              String            @id @default(uuid())
+  passId          String
+  pass            VenturePass       @relation(fields: [passId], references: [id], onDelete: Cascade)
+  scannedAt       DateTime          @default(now())
+  gateOperator    String?
+  result          String
+  errorReason     String?
+}
+
+model VentureStaffScanner {
+  id             String        @id @default(uuid())
+  ventureEventId String
+  ventureEvent   VentureEvent  @relation(fields: [ventureEventId], references: [id], onDelete: Cascade)
+  staffName      String
+  pin            String        @unique
+  gateName       String        @default("Main Gate")
+  isActive       Boolean       @default(true)
+  scansCount     Int           @default(0)
+  lastScannedAt  DateTime?
+  expiresAt      DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([pin])
+  @@index([ventureEventId, isActive])
+}
+

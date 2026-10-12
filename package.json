@@ -1,0 +1,33 @@
+{
+  "name": "happenins-ticketing-platform",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "local:seed": "tsx scripts/seed-local.ts",
+      "db:generate": "prisma generate",
+    "local:restore": "node scripts/local-restore.mjs",
+    "demo:build-dump": "tsx scripts/demo/build-dump.ts"
+  },
+
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.14.0",
+    "@types/nodemailer": "^8.0.1",
+    "@types/qrcode": "^1.5.6",
+    "@types/three": "^0.185.0",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.25.0",
+    "prisma": "^5.20.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3",
+    "vitest": "^4.1.10"
+  }
+}
